@@ -55,7 +55,7 @@ namespace TodoApi.Controllers
 
             await _context.SaveChangesAsync();
 
-            return CreatedAtRoute("GetTodo", new { item.Id }, item);
+            return CreatedAtRoute("GetById", new { item.Id }, item);
         }
 
         // PUT api/items/5

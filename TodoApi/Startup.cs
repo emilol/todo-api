@@ -10,13 +10,15 @@ namespace TodoApi
 {
     public class Startup
     {
-        public Startup(IHostingEnvironment env)
+        public Startup(IHostingEnvironment env, IConfiguration configuration)
         {
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
+                .AddConfiguration(configuration)
                 .AddEnvironmentVariables();
+
             Configuration = builder.Build();
         }
 
@@ -28,7 +30,27 @@ namespace TodoApi
             // Add framework services.
             services.AddMvc();
 
-            services.AddDbContext<TodoDbContext>(options => options.UseSqlServer(Configuration.GetConnectionString("TodoDb")));
+            var settings = Configuration.GetSection("Database").Get<DatabaseSettings>();
+
+            if (settings.UseInMemoryDatabase)
+            {
+                services.AddEntityFrameworkInMemoryDatabase()
+                    .AddDbContext<TodoDbContext>(options =>
+                    {
+                        options.UseInMemoryDatabase(settings.DatabaseName);
+                    });
+            }
+            else
+            {
+                services.AddEntityFrameworkSqlServer()
+                    .AddDbContext<TodoDbContext>(options =>
+                    {
+                        options.UseSqlServer(
+                            Configuration.GetConnectionString(settings.ConnectionStringName),
+                            builder => builder.UseRowNumberForPaging()
+                        );
+                    });
+            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -38,8 +60,6 @@ namespace TodoApi
             loggerFactory.AddDebug();
 
             app.UseMvc();
-
-            TodoDbInitialiser.Initialise(context);
         }
     }
 }
